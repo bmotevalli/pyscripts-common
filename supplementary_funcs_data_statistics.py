@@ -6,12 +6,12 @@ Created on Wed Apr 10 10:04:29 2019
 """
 
 import numpy as np     
-from pylab import *
+# from pylab import *
 import matplotlib.pyplot as plt
 from copy import copy
 import pandas as pd
 from matplotlib import colors
-from mpl_toolkits.axes_grid1.inset_locator import inset_axes
+# from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 from numpy.matlib import repmat
 from scipy.spatial import distance_matrix
 from scipy.spatial.distance import cdist, pdist
