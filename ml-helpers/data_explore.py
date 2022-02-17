@@ -20,16 +20,143 @@ from matplotlib import cm
 from mpl_toolkits.mplot3d import Axes3D
 import shutil
 
+import random
+
 import os
 
 
-def list_missing_data_cols(df):
+def get_random_color():
+    """
+    Original @author:   VÍTOR GAMA LEMOS
+    url:                https://www.kaggle.com/vitorgamalemos/house-prices-data-exploration
+    ref:                Taken from Kaggle Advanced House Price
+    """
+    r1 = lambda: random.randint(0,255)
+    return '#%02X%02X%02X' % (r1(),r1(),r1())
+
+
+def get_histplot(df: dict, fields: list):
+    """
+    Original @author:   VÍTOR GAMA LEMOS
+    url:                https://www.kaggle.com/vitorgamalemos/house-prices-data-exploration
+    ref:                Taken from Kaggle Advanced House Price
+    """
+    for field in fields:
+        f, (ax1) = plt.subplots(1, 1, figsize=(15, 5))
+        v_dist_1 = df[field].values
+        sns.histplot(v_dist_1, ax=ax1, color=get_random_color(), kde=True)
+
+        mean=df[field].mean()
+        median=df[field].median()
+        mode=df[field].mode().values[0]
+
+        ax1.axvline(mean, color='r', linestyle='--', label="Mean")
+        ax1.axvline(median, color='g', linestyle='-', label="Median")
+        ax1.axvline(mode, color='b', linestyle='-', label="Mode")
+        ax1.legend()
+
+        plt.title(f"{field} - Histogram analysis")
+        
+def get_scatter(df: dict, fields: list, label: str):
+    ylim = (0, df[label].max() * 1.1)
+    for field in fields:
+        df_copy = pd.concat([df[label], df[field]], axis=1)
+        df_copy.plot.scatter(x=field, y=label, ylim=ylim, color=get_random_color())
+        plt.title(f"{field} - Relationship with {label}")
+
+
+def scatter_label_vs_features(df, lst_x_cols, main_label, lst_tags = None, lst_colors = None, nrows=3, ncols=3, num_fig_to_show = None):
+    """
+    This function is a quick way to check label column against feature columns
+    in a scatter plot.
+
+    Note:   numerical columns and labels are suited for this purpose.
+    """
+    count = 1
+    tot_subs = nrows * ncols
+    for i, x_col in enumerate(lst_x_cols):
+        
+        if not (num_fig_to_show == None):
+            if (i == num_fig_to_show):
+                break
+        
+        if(i % tot_subs == 0):
+            count = 1
+            plt.figure(figsize=(20,12))
+
+        plt.subplot(nrows,ncols,count)
+        
+        if (lst_tags == None):
+            plt.scatter(df[x_col],df[main_label])    
+        else:
+            for i, tag in enumerate(lst_tags):
+                plt.scatter(df[x_col],df[main_label], color = lst_colors[i])
+                
+        plt.xlabel(x_col)
+        plt.tight_layout()
+
+        count += 1
+
+
+def barChart_label_vs_cat_feats(df, cols_cat, label, agg_mode='mean', figsize=(20,10), lst_tags = None, lst_colors = None, nrows=3, ncols=3, num_fig_to_show = None):
+    """
+    This function plots a label distribution against different categorical features.
+    """
+    count = 1
+    tot_subs = nrows * ncols
+    for i, c in enumerate(cols_cat):    
+        
+        if agg_mode == 'mean':
+            df_agg = df.groupby(c).agg({label:lambda x: x.mean()}).reset_index()
+        elif agg_mode == 'sum':
+            df_agg = df.groupby(c).agg({label:lambda x: x.sum()}).reset_index()
+        else:
+            return
+
+        if not (num_fig_to_show == None):
+            if (i == num_fig_to_show):
+                break
+
+        if(i % tot_subs == 0):
+            count = 1
+            plt.figure(figsize=figsize)
+
+        plt.subplot(nrows,ncols,count)
+
+        if (lst_tags == None):
+            plt.bar(df_agg[c], df_agg[label])    
+        else:
+            for i, tag in enumerate(lst_tags):
+                plt.bar(df_agg[c],df_agg[label], color = lst_colors[i])
+
+        plt.xlabel(c)
+        plt.tight_layout()
+
+        count += 1
+
+
+def table_color_intense(df, cols = None, nrows = None, back_color="green"):
+
+    if not cols:
+        cols = df.columns
+    
+    if not nrows:
+        nrows = len(df)
+
+    cm = sns.light_palette(back_color, as_cmap=True)
+    return df.head(nrows).style.background_gradient(cmap=cm)
+
+
+def list_missing_data_cols(df, back_color="red"):
     """
     This function reports statistics on missing data in the datasets.
     """
     lst_cols_missing = list(df.columns[df.isnull().any()])
     lst_cols_miss_data = [(col, df[col].isnull().sum()) for col in lst_cols_missing]
     lst_cols_miss_data = sorted(lst_cols_miss_data, reverse = True, key=lambda x: x[1])
+
+    cm = sns.light_palette(back_color, as_cmap=True)
+    df_col_miss = pd.DataFrame(df.isnull().sum().sort_values(ascending=False), columns=["count"]).style.background_gradient(cmap=cm)
 
     print('')
     print('List of columns with missing data:')
@@ -42,7 +169,7 @@ def list_missing_data_cols(df):
     for item in lst_cols_miss_data: print(item[0],": ", item[1])
     print('')
 
-    return lst_cols_miss_data
+    return df_col_miss, lst_cols_miss_data
 
 
 def show_balance(col_feat, df, label = 'Cluster No.', show_pie = True, 
@@ -98,13 +225,13 @@ def share_percentage(df, columns):
     import numpy as np
     shares_cols = dict()
     
-    n_rows = len(df)
+    nrowss = len(df)
 
     for col in columns:
         unq_vals = df[col].unique()
         shares = dict()
         for val in unq_vals:
-            shares[val] = round(len(df[df[col] == val]) / n_rows * 100.0, 3)
+            shares[val] = round(len(df[df[col] == val]) / nrowss * 100.0, 3)
             
         shares_cols[col] = shares
 
@@ -121,15 +248,15 @@ def report_unbalance_cols(df, columns, thresh = 90):
     
     import numpy as np
     
-    n_rows = len(df)
+    nrowss = len(df)
     
     report_cols = []
     for col in columns:
         unq_vals = df[col].unique()
         if (len(unq_vals) < 50):
             for val in unq_vals:
-                share = (len(df[df[col] == val]) / n_rows * 100.0)
-                if ((len(df[df[col] == val]) / n_rows * 100.0) > thresh):
+                share = (len(df[df[col] == val]) / nrowss * 100.0)
+                if ((len(df[df[col] == val]) / nrowss * 100.0) > thresh):
                     report_cols.append(col)
 
     return report_cols
@@ -223,69 +350,6 @@ def greedy_elimination(corr, col_list, main_label = None, thresh_val = 75):
     print('\n\nNumber of Columns To Delete: ', len(col_list) - len(cols_to_keep))
     
     return cols_to_keep, df
-
-
-def scatter_label_vs_features(df, lst_x_cols, main_label, lst_tags = None, lst_colors = None, n_row=3, n_col=3, num_fig_to_show = None):
-    """
-    This function is a quick way to check label column against feature columns
-    in a scatter plot.
-
-    Note:   numerical columns and labels are suited for this purpose.
-    """
-    count = 1
-    tot_subs = n_row * n_col
-    for i, x_col in enumerate(lst_x_cols):
-        
-        if not (num_fig_to_show == None):
-            if (i == num_fig_to_show):
-                break
-        
-        if(i % tot_subs == 0):
-            count = 1
-            plt.figure(figsize=(20,12))
-
-        plt.subplot(n_row,n_col,count)
-        
-        if (lst_tags == None):
-            plt.scatter(df[x_col],df[main_label])    
-        else:
-            for i, tag in enumerate(lst_tags):
-                plt.scatter(df[x_col],df[main_label], color = lst_colors[i])
-                
-        plt.xlabel(x_col)
-        plt.tight_layout()
-
-        count += 1
-
-
-def barChart_label_vs_cat_feats(df, cols_cat, label, lst_tags = None, lst_colors = None, n_row=3, n_col=3, num_fig_to_show = None):
-    """
-    This function plots a label distribution against different categorical features.
-    """
-    for i, c in enumerate(cols_cat):    
-    
-        df_agg = df_train.groupby(c).agg({label:lambda x: x.mean()}).reset_index()
-
-        if not (num_fig_to_show == None):
-            if (i == num_fig_to_show):
-                break
-
-        if(i % tot_subs == 0):
-            count = 1
-            plt.figure(figsize=figsize)
-
-        plt.subplot(n_row,n_col,count)
-
-        if (lst_tags == None):
-            plt.bar(df_agg[c], df_agg[label])    
-        else:
-            for i, tag in enumerate(lst_tags):
-                plt.bar(df_agg[c],df_agg[label], color = lst_colors[i])
-
-        plt.xlabel(c)
-        plt.tight_layout()
-
-        count += 1
 
         
         
