@@ -1,17 +1,16 @@
-# -*- coding: utf-8 -*-
 """
 Created on Wed Apr 10 10:04:29 2019
 
-@author: mot032
+@author: Ben Motevalli (b.motevalli@gmail.com)
 """
 
 import numpy as np     
-# from pylab import *
+from pylab import *
 import matplotlib.pyplot as plt
 from copy import copy
 import pandas as pd
 from matplotlib import colors
-# from mpl_toolkits.axes_grid1.inset_locator import inset_axes
+from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 from numpy.matlib import repmat
 from scipy.spatial import distance_matrix
 from scipy.spatial.distance import cdist, pdist
@@ -37,6 +36,7 @@ from mpl_toolkits.mplot3d import Axes3D
 import shutil
 
 import os
+
 
 
 def cluster_quality(X, centroids):
@@ -67,19 +67,6 @@ def get_centroids(arr_clusters, arr_X):
     return np.array(centroids)
 
 
-def vis_xyz(file_path):
-    import py3Dmol
-    with open(file_path) as f:
-        xyz = f.read()
-        
-    xyzview = py3Dmol.view(width=400,height=400)
-    xyzview.addModel(xyz,'xyz')
-    xyzview.setStyle({'stick':{}})
-    xyzview.setBackgroundColor('0xeeeeee')
-    xyzview.zoomTo()
-    xyzview.show()
-
-    
 def kmean_elbow_percentange(X, lst_kms, figname):
     
     from scipy.spatial.distance import cdist
@@ -232,396 +219,6 @@ def explained_variance(X_act, X_appr, method = 'sklearn'):
         SST = calc_SST(X_act)
         
         return (SST - SSE) / SST
-    
-
-def ternaryPlot(data, scaling=True, start_angle=90, rotate_labels=True,
-                labels=('one','two','three'), sides=3, label_offset=0.10,
-                edge_args={'color':'black','linewidth':1},
-                fig_args = {'figsize':(8,8),'facecolor':'white','edgecolor':'white'},
-                grid_on = True
-        ):
-    '''
-    source: https://stackoverflow.com/questions/701429/library-tool-for-drawing-ternary-triangle-plots
-    
-    This will create a basic "ternary" plot (or quaternary, etc.)
-    
-    DATA:           The dataset to plot. To show data-points in terms of archetypes
-                    the alfa matrix should be provided.
-    
-    SCALING:        Scales the data for ternary plot such that the components along
-                    each axis dimension sums to 1. This conditions is already imposed 
-                    on alfas for archetypal analysis.
-    
-    start_angle:    Direction of first vertex.
-    
-    rotate_labels:  Orient labels perpendicular to vertices.
-    
-    labels:         Labels for vertices.
-    
-    sides:          Can accomodate more than 3 dimensions if desired.
-    
-    label_offset:   Offset for label from vertex (percent of distance from origin).
-    
-    edge_args:      Any matplotlib keyword args for plots.
-    
-    fig_args:       Any matplotlib keyword args for figures.
-    
-    '''
-    basis = np.array(
-                    [
-                        [
-                            np.cos(2*_*pi/sides + start_angle*pi/180),
-                            np.sin(2*_*pi/sides + start_angle*pi/180)
-                        ] 
-                        for _ in range(sides)
-                    ]
-                )
-
-    # If data is Nxsides, newdata is Nx2.
-    if scaling:
-        # Scales data for you.
-        newdata = np.dot((data.T / data.sum(-1)).T,basis)
-    else:
-        # Assumes data already sums to 1.
-        newdata = np.dot(data,basis)
-
-#    fig = plt.figure(**fig_args)
-    fig = plt.figure(figsize=(10,10))
-    ax = fig.add_subplot(111)
-
-    for i,l in enumerate(labels):
-        if i >= sides:
-            break
-        x = basis[i,0]
-        y = basis[i,1]
-        if rotate_labels:
-            angle = 180*np.arctan(y/x)/pi + 90
-            if angle > 90 and angle <= 270:
-                angle = mod(angle + 180,360)
-        else:
-            angle = 0
-        ax.text(
-                x*(1 + label_offset),
-                y*(1 + label_offset),
-                l,
-                horizontalalignment='center',
-                verticalalignment='center',
-                rotation=angle
-            )
-
-    # Clear normal matplotlib axes graphics.
-    ax.set_xticks(())
-    ax.set_yticks(())
-    ax.set_frame_on(False)
-    
-    # Plot border
-    lst_ax_0 = []
-    lst_ax_1 = []
-    ignore = False
-    for i in range(sides):
-        for j in range(i + 2, sides):
-            if (i == 0 & j == sides):
-                ignore = True
-            else:
-                ignore = False                        
-#                
-            if not (ignore):
-#            if (j!=i & j!=i+1 & j != i-1):                        
-                lst_ax_0.append(basis[i,0] + [0,])
-                lst_ax_1.append(basis[i,1] + [0,])
-                lst_ax_0.append(basis[j,0] + [0,])
-                lst_ax_1.append(basis[j,1] + [0,])
-
-#    lst_ax_0.append(basis[0,0] + [0,])
-#    lst_ax_1.append(basis[0,1] + [0,])
-    
-    ax.plot(lst_ax_0,lst_ax_1, color='#FFFFFF',linewidth=1, alpha = 0.5)
-    
-    # Plot border
-    lst_ax_0 = []
-    lst_ax_1 = []
-    for _ in range(sides):
-        lst_ax_0.append(basis[_,0] + [0,])
-        lst_ax_1.append(basis[_,1] + [0,])
-
-    lst_ax_0.append(basis[0,0] + [0,])
-    lst_ax_1.append(basis[0,1] + [0,])
-#    ax.plot(
-#        [basis[_,0] for _ in range(sides) + [0,]],
-#        [basis[_,1] for _ in range(sides) + [0,]],
-#        **edge_args
-#    )
-#    
-    ax.plot(lst_ax_0,lst_ax_1,linewidth=1) #, **edge_args ) 
-    
-
-    return newdata,ax 
-
-
-def compare_profile(prof_ref, prof_2, feature_cols, direction = 'h'):
-    """
-    This function compares the profile of two data points. Note, this two data
-    points could be archetypes and prototypes as well.
-    
-    feature_cols:
-        Optional input. list of feature names to use to label x-axis.
-    """               
-    
-    plt.style.use('ggplot')
-    
-    n_dim = len(feature_cols)   
-       
-    fig = plt.figure()
-    
-    if (direction == 'h'):
-    
-        x_vals = np.arange(1, n_dim + 1)
-        plt.bar(x_vals, prof_ref * 100.0, color = '#273746', label='Minimum Case')
-        plt.bar(x_vals, prof_2 * 100.0, color = '#D81B60', alpha = 0.5, label='Maximum Case')
-        plt.xticks(x_vals, feature_cols, rotation='vertical')
-        plt.ylim([0,100])
-    #    plt.ylabel('A' + str(i + 1))
-        plt.rcParams.update({'font.size': 10})
-        plt.tight_layout()
-        plt.legend(loc='upper left') 
-        
-    elif (direction == 'v'):
-        
-        y_vals = np.arange(1, n_dim + 1)    
-    
-        plt.barh(y_vals, prof_ref * 100.0, color = '#273746', label='Archetype')
-        plt.barh(y_vals, prof_2 * 100.0, color = '#D81B60', alpha = 0.5, label='Closet Data')  
-        plt.yticks(y_vals, feature_cols)
-        plt.xlim([0,100])
-        plt.rcParams.update({'font.size': 10})
-        plt.tight_layout()
-        plt.legend(loc='upper left') 
-        
-    else:
-        
-        raise ValueError('acceptable direction values are "h" and "v"!')
-
-    return fig
-
-
-def datapoint_profile(x_point, x_data):
-    
-    point_profile = []
-    
-    for i, p in enumerate(x_point):
-        
-        d = x_data[i, :]
-        
-        point_profile.append(ecdf(d, p))
-        
-    return np.array(point_profile)
-
-
-def list_missing_data_cols(df):
-    lst_cols_missing = list(df.columns[df.isnull().any()])
-    lst_cols_miss_data = [(col, df[col].isnull().sum()) for col in lst_cols_missing]
-    lst_cols_miss_data = sorted(lst_cols_miss_data, reverse = True, key=lambda x: x[1])
-
-    print('')
-    print('List of columns with missing data:')
-    print('==================================\n')
-    print('')
-    print('Total Number of Data (Rows):                 ', len(df))
-    print('Total Number of Columns with Missing Data:   ', len(lst_cols_miss_data))
-    print('Total Number of Columns:                     ', len(df.columns))
-    print('')
-    for item in lst_cols_miss_data: print(item[0],": ", item[1])
-    print('')
-
-    return lst_cols_miss_data
-
-
-def show_balance(col_feat, df, label = 'Cluster No.', show_pie = True, 
-                 title = '', show_percent = True,
-                 colors = ['#ff9999','#66b3ff','#99ff99','#ffcc99']):
-    
-    lst_share = []
-    lst_labels = []
-    for col_cat in df[col_feat].unique():
-        
-        share = len(df[df[col_feat] == col_cat]) / len(df) * 100
-        print(f'{label} = {col_cat}: {share: 5.2f} %')
-        lst_share.append(share)
-        if 'km' in col_feat:
-            lst_labels.append(f'C{col_cat + 1}')
-        else:
-            lst_labels.append(col_cat)
-    
-    if (show_pie):
-        
-        plt.style.use('default')
-        
-        #colors       
-
-        fig1, ax1 = plt.subplots(figsize=(3, 3))
-        if show_percent:
-            ax1.pie(lst_share, colors = colors, labels=lst_labels, autopct='%1.1f%%', startangle=90)
-        else:
-            ax1.pie(lst_share, colors = colors, labels=lst_labels, startangle=90)
-        
-        #draw circle
-        centre_circle = plt.Circle((0,0),0.8,fc='white')
-        fig1 = plt.gcf()
-        fig1.gca().add_artist(centre_circle)
-        # Equal aspect ratio ensures that pie is drawn as a circle
-        ax1.axis('equal')  
-        plt.tight_layout()
-        
-        return fig1
-
-
-def share_percentage(df, columns):
-    """
-   This function shows the balance in each column of dataframe
-    """
-    import numpy as np
-    shares_cols = dict()
-    
-    n_rows = len(df)
-
-    for col in columns:
-        unq_vals = df[col].unique()
-        shares = dict()
-        for val in unq_vals:
-            shares[val] = round(len(df[df[col] == val]) / n_rows * 100.0, 3)
-            
-        shares_cols[col] = shares
-
-    return shares_cols  
-
-
-def report_unbalance_cols(df, columns, threshold = 90):
-    
-    import numpy as np
-    
-    n_rows = len(df)
-    
-    report_cols = []
-    for col in columns:
-        unq_vals = df[col].unique()
-        if (len(unq_vals) < 50):
-            for val in unq_vals:
-                share = (len(df[df[col] == val]) / n_rows * 100.0)
-                if ((len(df[df[col] == val]) / n_rows * 100.0) > threshold):
-                    report_cols.append(col)
-
-    return report_cols
-
-
-
-def greedy_elimination(corr, col_list, main_label = None, thresh_val = 75):
-    
-    from copy import copy
-    import random   
-    
-    random.seed(1001)
-    
-    df = pd.DataFrame(columns=['feat_1', 'feat_2', 'corr', 'deleted'])
-    
-    arr_corr = np.array(corr)
-    
-    # Getting the upper triangle of the matrix
-    up_tri_inx = np.triu_indices(len(arr_corr),1)     
-    
-    # Creating a tuple of upper-triangle indexes and corresponding values, and sorting.
-    lst_tpls = sorted(list(zip(up_tri_inx[0],up_tri_inx[1],arr_corr[up_tri_inx])), reverse = True, key=lambda x: x[2])
-    
-    cols_to_keep = copy(col_list)
-    
-    for i,j,v in lst_tpls:
-        
-        if (v < thresh_val):
-            break
-        
-        col_i = col_list[i]
-        col_j = col_list[j]
-        
-        if (main_label == None):
-            
-            if ((col_i in cols_to_keep) & (col_j in cols_to_keep)):
-                
-                col_to_del = random.choice([col_i, col_j])
-                cols_to_keep.remove(col_to_del)
-                
-                #col_i = '$' + col_i + '$'
-                #col_j = '$' + col_j + '$'
-                #col_to_del = '$' + col_to_del + '$'
-                
-                #print(f'{col_i} | {col_j} = {v: 5.2f} Deleted Feat: {col_to_del}')     
-                
-                df = df.append({'feat_1': col_i, 'feat_2': col_j, 'corr': v, 'deleted': col_to_del}, ignore_index=True)
-        else:
-        
-            if ((col_i != main_label) & (col_j != main_label) & (col_i in cols_to_keep) & (col_j in cols_to_keep)):                  
-                corr_i = corr[main_label][col_i]
-                corr_j = corr[main_label][col_j]
-
-                # print_line = '('+col_i + ', ' + col_j + ')= ' + str(v) + '\tCorr. With ' + main_label + '(' + '{:0.4f}, {:0.4f})\tDeleted Feat.: '.format(corr_i, corr_j)
-                print_line = '('+col_i + ', ' + col_j + ')= ' + str(v) + '\tDeleted Feat.: '.format(corr_i, corr_j)
-                if (corr_i < corr_j):
-                    print_line = print_line + col_i
-                    cols_to_keep.remove(col_i)
-                    df = df.append({'feat_1': col_i, 'feat_2': col_j, 'corr': v, 'deleted': col_i}, ignore_index=True)
-                else:
-                    print_line = print_line + col_j
-                    cols_to_keep.remove(col_j)
-                    df = df.append({'feat_1': col_i, 'feat_2': col_j, 'corr': v, 'deleted': col_j}, ignore_index=True)
-
-                # print(print_line)
-    
-    print('\n\nOriginal Number of Columns: ', len(col_list))
-    print('\n\nNumber of Columns To Keep: ', len(cols_to_keep))
-    print('\n\nNumber of Columns To Delete: ', len(col_list) - len(cols_to_keep))
-    
-    return cols_to_keep, df
-
-
-def scatter_label_vs_features(df, lst_x_cols, main_label, lst_tags = None, lst_colors = None, n_row=3, n_col=3, num_fig_to_show = None):
-
-    count = 1
-    tot_subs = n_row * n_col
-    for i, x_col in enumerate(lst_x_cols):
-        
-        if not (num_fig_to_show == None):
-            if (i == num_fig_to_show):
-                break
-        
-        if(i % tot_subs == 0):
-            count = 1
-            plt.figure(figsize=(20,12))
-
-        plt.subplot(n_row,n_col,count)
-        
-        if (lst_tags == None):
-            plt.scatter(df[x_col],df[main_label])    
-        else:
-            for i, tag in enumerate(lst_tags):
-                plt.scatter(df[x_col],df[main_label], color = lst_colors[i])
-                
-        plt.xlabel(x_col)
-        plt.tight_layout()
-
-        count += 1
-        
-        
-def correlation_matrix(df, show_matrix = True):
-    
-    corr = df.corr(method='spearman').abs().mul(100).astype(float)
-    
-    fig = plt.figure()
-    cmap = sns.diverging_palette(h_neg = 210, h_pos=350, s=90, l=30, as_cmap=True)
-    cg = sns.clustermap(data = corr, cmap='Blues',  metric='correlation', figsize=(8,8))
-    plt.setp(cg.ax_heatmap.yaxis.get_majorticklabels(), rotation=0)
-    #plt.savefig('paper_images/Fig1-correlation_matrix.png', dpi=300, bbox_inches='tight')
-    
-    
-    return corr, fig
-
 
 def show_EV_PCA(pca):
         
@@ -670,9 +267,8 @@ def show_PCA_in_Feat(lst_Feat, res, shape = [3,3]):
         
     
     return lst_figs
-    
-    
-    
+
+   
     
 def plot_learning_curve(estimator, title, X, y, ylim=None, cv=None,
                         n_jobs=None, train_sizes=np.linspace(.1, 1.0, 5)):
@@ -754,10 +350,10 @@ def plot_learning_curve(estimator, title, X, y, ylim=None, cv=None,
              label="Cross-validation score")
 
     plt.legend(loc="best")
-    return fig    
+    return fig   
 
-def funcLinear(x, a, b):
-    return a*x + b
+
+
 
 def plot_gth_pre(Y_label, Y_pre, range_set = True, tag='Train'):
     from scipy.optimize import curve_fit
@@ -961,7 +557,6 @@ def return_feature_importance(ft_set, feature_importance, show_cols = 30):
         w_lr_sort.append(w_lr[idx])
 
     return w_lr_sort, ft_sorted, sorted_index_pos
-
 
 
 def del_important_feat_classifier(estimator, X, y):
